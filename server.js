@@ -12,7 +12,6 @@ const UserRoute = require("./routes/user");
 const AddressRoute = require("./routes/address");
 const CartRoute = require("./routes/cart");
 const OrderRoute = require("./routes/order");
-const TestRoute = require("./api/test");
 const setupWebSocket = require("./utils/websocket");
 
 dotenv.config();
@@ -38,6 +37,36 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 根路由
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "欢迎访问 Foodly API",
+    version: "1.0.0",
+    endpoints: {
+      test: "/api/test",
+      auth: "/api/auth",
+      users: "/api/users",
+      restaurants: "/api/restaurant",
+      foods: "/api/food",
+      categories: "/api/category",
+      ratings: "/api/rating",
+      addresses: "/api/address",
+      cart: "/api/cart",
+      orders: "/api/orders",
+    },
+  });
+});
+
+// 测试路由
+app.get("/api/test", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "Test API is working",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // 设置 WebSocket
 setupWebSocket(server, app);
 
@@ -61,7 +90,6 @@ mongoose
   });
 
 // 路由配置
-app.use("/api/test", TestRoute);
 app.use("/api/auth", AuthRoute);
 app.use("/api/users", UserRoute);
 app.use("/api/category", CategoryRoute);
@@ -71,11 +99,6 @@ app.use("/api/rating", RatingsRoute);
 app.use("/api/address", AddressRoute);
 app.use("/api/cart", CartRoute);
 app.use("/api/orders", OrderRoute);
-
-// test
-app.get("/api/test", (req, res) => {
-  res.send("Hello World");
-});
 
 // 404处理
 app.use((req, res) => {
@@ -97,12 +120,15 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 使用 server.listen 而不是 app.listen
-const PORT = process.env.PORT || 6013;
-server.listen(PORT, () => {
-  console.log(`Foodly Backend is running on port ${PORT}!`);
-  console.log(`API文档: http://localhost:${PORT}`);
-  console.log(`健康检查: http://localhost:${PORT}/health`);
-});
+// 仅在直接运行时启动服务器
+if (require.main === module) {
+  const PORT = process.env.PORT || 6013;
+  server.listen(PORT, () => {
+    console.log(`Foodly Backend is running on port ${PORT}!`);
+    console.log(`API文档: http://localhost:${PORT}`);
+    console.log(`健康检查: http://localhost:${PORT}/health`);
+  });
+}
 
+// 导出 app 而不是 server
 module.exports = app;
