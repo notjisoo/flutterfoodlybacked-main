@@ -35,12 +35,9 @@ app.use(
   })
 );
 
-// 安全头设置
+// 移除 CSP 限制
 app.use((req, res, next) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'self'; connect-src 'self' ws: wss: http: https: localhost:*;"
-  );
+  res.removeHeader("Content-Security-Policy");
   next();
 });
 

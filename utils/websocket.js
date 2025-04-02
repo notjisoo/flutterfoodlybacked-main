@@ -2,10 +2,9 @@ const WebSocket = require("ws");
 const Order = require("../models/Order");
 
 const setupWebSocket = (server, app) => {
-  // 创建 WebSocket 服务器，添加路径配置
+  // 创建 WebSocket 服务器
   const wss = new WebSocket.Server({
     server,
-    path: "/ws",
   });
 
   // 存储所有连接的客户端，使用 Map 来存储餐厅ID和对应的连接
@@ -80,7 +79,7 @@ const setupWebSocket = (server, app) => {
       if (restaurantWs && restaurantWs.readyState === WebSocket.OPEN) {
         // 4. 只向对应的商家发送通知
         const wsMessage = {
-          type: "order_paid",
+          type: "new_order",
           orderId: orderId,
           orderDetails: orderDetails,
           timestamp: new Date().toISOString(),
