@@ -3,6 +3,7 @@ const cors = require("cors");
 const app = express();
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
+const { ObjectId } = require("mongodb");
 const Order = require("./models/Order");
 const CategoryRoute = require("./routes/category");
 const RestaurantRoute = require("./routes/restaurant");
@@ -133,7 +134,9 @@ app.post("/api/orders/payment-success", async (req, res) => {
     });
 
     // 2. 获取订单对应的商家ID
-    const order = await Order.findById(new ObjectId(orderId));
+    const order = await Order.findById(ObjectId(orderId));
+    console.log("order", order);
+
     if (!order) {
       console.error(`未找到订单: ${orderId}`);
       return res.status(404).json({ error: "Order not found" });
