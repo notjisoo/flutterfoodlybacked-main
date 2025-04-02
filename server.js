@@ -40,6 +40,10 @@ mongoose
   });
 
 // 路由配置
+app.get("/api/test", (req, res) => {
+  res.send("Hello World");
+});
+
 app.use("/", AuthRoute);
 app.use("/api/users", UserRoute);
 app.use("/api/category", CategoryRoute);
