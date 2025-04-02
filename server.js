@@ -24,7 +24,12 @@ const server = require("http").createServer(app);
 
 // 请求日志中间件
 app.use((req, res, next) => {
+  console.log("\n=== 收到新请求 ===");
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log("请求头:", req.headers);
+  if (req.method === "POST") {
+    console.log("请求体:", JSON.stringify(req.body, null, 2));
+  }
   next();
 });
 
@@ -38,13 +43,21 @@ app.use(
   })
 );
 
-// 移除 CSP 限制
-app.use((req, res, next) => {
-  res.removeHeader("Content-Security-Policy");
-  next();
-});
+// 解析 JSON
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      try {
+        JSON.parse(buf);
+      } catch (e) {
+        console.error("JSON解析错误:", e);
+        res.status(400).json({ error: "Invalid JSON" });
+        throw new Error("Invalid JSON");
+      }
+    },
+  })
+);
 
-app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // 根路由
@@ -82,21 +95,17 @@ const wss = setupWebSocket(server, app);
 
 // 数据库连接
 mongoose
-  .connect(
-    process.env.MONGOURL ||
-      "mongodb+srv://foodly:mcQsSBqbnEi4qmwr@foodly.8brkl.mongodb.net/?retryWrites=true&w=majority&appName=foodly",
-    {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000,
-      socketTimeoutMS: 45000,
-      retryWrites: true,
-      retryReads: true,
-      maxPoolSize: 10,
-      minPoolSize: 5,
-      heartbeatFrequencyMS: 10000,
-    }
-  )
+  .connect(process.env.MONGOURL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 30000,
+    socketTimeoutMS: 45000,
+    retryWrites: true,
+    retryReads: true,
+    maxPoolSize: 10,
+    minPoolSize: 5,
+    heartbeatFrequencyMS: 10000,
+  })
   .then(() => {
     console.log("Foodly Database Connected Successfully");
   })
@@ -120,36 +129,37 @@ app.use("/api/orders", OrderRoute);
 
 // 订单支付成功通知路由
 app.post("/api/orders/payment-success", async (req, res) => {
-  console.log("收到支付成功通知请求");
-  console.log("请求体:", req.body);
+  console.log("\n=== 收到支付成功通知 ===");
+  console.log("时间:", new Date().toISOString());
+  console.log("请求头:", req.headers);
+  console.log("请求体:", JSON.stringify(req.body, null, 2));
 
   try {
     const { orderId, orderDetails, paymentStatus } = req.body;
-    console.log(`处理订单 ${orderId} 的支付成功通知`);
 
-    // 1. 更新订单状态
-    await Order.findByIdAndUpdate(orderId, {
-      paymentStatus: "Completed",
-      orderStatus: "Placed",
-    });
+    if (!orderId) {
+      console.log("错误: 缺少订单ID");
+      return res.status(400).json({ error: "Missing orderId" });
+    }
 
-    // 2. 获取订单对应的商家ID
-    const order = await Order.findById(ObjectId(orderId));
-    console.log("order", order);
-
-    if (!order) {
-      console.error(`未找到订单: ${orderId}`);
+    // 验证订单是否存在
+    console.log("正在查找订单:", orderId);
+    const existingOrder = await Order.findById(new ObjectId(orderId));
+    if (!existingOrder) {
+      console.log("错误: 未找到订单");
       return res.status(404).json({ error: "Order not found" });
     }
 
-    const restaurantId = order.restaurantId;
-    console.log(`订单对应的餐厅ID: ${restaurantId}`);
+    console.log("existingOrder", existingOrder);
 
-    // 3. 获取对应商家的WebSocket连接
+    const restaurantId = existingOrder.restaurantId;
+    console.log("餐厅ID:", restaurantId);
+
+    // 2. 获取对应商家的WebSocket连接
     const restaurantWs = wss.restaurantClients.get(restaurantId);
 
     if (restaurantWs && restaurantWs.readyState === WebSocket.OPEN) {
-      // 4. 只向对应的商家发送通知
+      // 3. 向商家发送通知
       const wsMessage = {
         type: "order_paid",
         orderId: orderId,
@@ -157,18 +167,22 @@ app.post("/api/orders/payment-success", async (req, res) => {
         timestamp: new Date().toISOString(),
       };
       restaurantWs.send(JSON.stringify(wsMessage));
-      console.log(`已发送订单支付通知到餐厅 ${restaurantId}`);
+      console.log("已发送WebSocket通知到餐厅");
     } else {
-      console.log(`餐厅 ${restaurantId} 不在线，无法发送通知`);
+      console.log("餐厅不在线，无法发送WebSocket通知");
     }
+
+    console.log("订单更新成功");
+    console.log("=== 处理完成 ===\n");
 
     res.status(200).json({
       message: "Order updated successfully",
-      orderId: orderId,
-      restaurantId: restaurantId,
+      order: existingOrder,
     });
   } catch (error) {
     console.error("处理支付成功通知时出错:", error);
+    console.error("错误堆栈:", error.stack);
+    console.log("=== 处理失败 ===\n");
     res.status(500).json({ error: "Failed to process payment success" });
   }
 });
@@ -193,14 +207,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 仅在直接运行时启动服务器
-if (require.main === module) {
-  const PORT = process.env.PORT || 6013;
-  server.listen(PORT, () => {
-    console.log(`Foodly Backend is running on port ${PORT}!`);
-    console.log(`API文档: http://localhost:${PORT}`);
-    console.log(`健康检查: http://localhost:${PORT}/health`);
-  });
-}
-
-module.exports = app;
+// 启动服务器
+const PORT = process.env.PORT || 6013;
+server.listen(PORT, () => {
+  console.log(`Foodly Backend is running on port ${PORT}!`);
+  console.log(`API文档: http://localhost:${PORT}`);
+  console.log(`健康检查: http://localhost:${PORT}/health`);
+});
