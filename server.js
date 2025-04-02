@@ -25,7 +25,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// 中间件配置
+// CORS 配置
 app.use(
   cors({
     origin: "*",
@@ -34,6 +34,16 @@ app.use(
     credentials: true,
   })
 );
+
+// 安全头设置
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; connect-src 'self' ws: wss: http: https: localhost:*;"
+  );
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -130,5 +140,4 @@ if (require.main === module) {
   });
 }
 
-// 导出 app 而不是 server
 module.exports = app;
