@@ -20,9 +20,20 @@ dotenv.config();
 const server = require("http").createServer(app);
 
 // 中间件配置
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// 添加健康检查路由
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
 
 // 设置 WebSocket
 setupWebSocket(server, app);
@@ -49,6 +60,12 @@ app.use("/api/rating", RatingsRoute);
 app.use("/api/address", AddressRoute);
 app.use("/api/cart", CartRoute);
 app.use("/api/orders", OrderRoute);
+
+// 错误处理中间件
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: "Something went wrong!" });
+});
 
 // 使用 server.listen 而不是 app.listen
 const PORT = process.env.PORT || 6013;
