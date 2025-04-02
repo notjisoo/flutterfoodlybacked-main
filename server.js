@@ -134,7 +134,7 @@ app.post("/api/orders/payment-success", async (req, res) => {
     console.log(`订单对应的餐厅ID: ${restaurantId}`);
 
     // 3. 获取对应商家的WebSocket连接
-    const restaurantWs = wss.clients.get(restaurantId);
+    const restaurantWs = wss.restaurantClients.get(restaurantId);
 
     if (restaurantWs && restaurantWs.readyState === WebSocket.OPEN) {
       // 4. 只向对应的商家发送通知
