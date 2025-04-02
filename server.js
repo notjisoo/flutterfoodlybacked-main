@@ -72,6 +72,11 @@ app.use("/api/address", AddressRoute);
 app.use("/api/cart", CartRoute);
 app.use("/api/orders", OrderRoute);
 
+// test
+app.get("/api/test", (req, res) => {
+  res.send("Hello World");
+});
+
 // 404处理
 app.use((req, res) => {
   console.log(`404 - 未找到路由: ${req.url}`);
@@ -99,3 +104,5 @@ server.listen(PORT, () => {
   console.log(`API文档: http://localhost:${PORT}`);
   console.log(`健康检查: http://localhost:${PORT}/health`);
 });
+
+module.exports = app;
