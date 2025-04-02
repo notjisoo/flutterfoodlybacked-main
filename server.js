@@ -3,6 +3,7 @@ const cors = require("cors");
 const app = express();
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
+const Order = require("./models/Order");
 const CategoryRoute = require("./routes/category");
 const RestaurantRoute = require("./routes/restaurant");
 const FoodsRoute = require("./routes/food");
@@ -13,6 +14,7 @@ const AddressRoute = require("./routes/address");
 const CartRoute = require("./routes/cart");
 const OrderRoute = require("./routes/order");
 const setupWebSocket = require("./utils/websocket");
+const WebSocket = require("ws");
 
 dotenv.config();
 
@@ -75,7 +77,7 @@ app.get("/api/test", (req, res) => {
 });
 
 // 设置 WebSocket
-setupWebSocket(server, app);
+const wss = setupWebSocket(server, app);
 
 // 数据库连接
 mongoose
@@ -106,6 +108,58 @@ app.use("/api/rating", RatingsRoute);
 app.use("/api/address", AddressRoute);
 app.use("/api/cart", CartRoute);
 app.use("/api/orders", OrderRoute);
+
+// 订单支付成功通知路由
+app.post("/api/orders/payment-success", async (req, res) => {
+  console.log("收到支付成功通知请求");
+  console.log("请求体:", req.body);
+
+  try {
+    const { orderId, orderDetails, paymentStatus } = req.body;
+    console.log(`处理订单 ${orderId} 的支付成功通知`);
+
+    // 1. 更新订单状态
+    await Order.findByIdAndUpdate(orderId, {
+      paymentStatus: "Completed",
+    });
+
+    // 2. 获取订单对应的商家ID
+    const order = await Order.findById(orderId);
+    if (!order) {
+      console.error(`未找到订单: ${orderId}`);
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    const restaurantId = order.restaurantId;
+    console.log(`订单对应的餐厅ID: ${restaurantId}`);
+
+    // 3. 获取对应商家的WebSocket连接
+    const restaurantWs = wss.clients.get(restaurantId);
+
+    if (restaurantWs && restaurantWs.readyState === WebSocket.OPEN) {
+      // 4. 只向对应的商家发送通知
+      const wsMessage = {
+        type: "order_paid",
+        orderId: orderId,
+        orderDetails: orderDetails,
+        timestamp: new Date().toISOString(),
+      };
+      restaurantWs.send(JSON.stringify(wsMessage));
+      console.log(`已发送订单支付通知到餐厅 ${restaurantId}`);
+    } else {
+      console.log(`餐厅 ${restaurantId} 不在线，无法发送通知`);
+    }
+
+    res.status(200).json({
+      message: "Order updated successfully",
+      orderId: orderId,
+      restaurantId: restaurantId,
+    });
+  } catch (error) {
+    console.error("处理支付成功通知时出错:", error);
+    res.status(500).json({ error: "Failed to process payment success" });
+  }
+});
 
 // 404处理
 app.use((req, res) => {

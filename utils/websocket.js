@@ -8,7 +8,7 @@ const setupWebSocket = (server, app) => {
   });
 
   // 存储所有连接的客户端，使用 Map 来存储餐厅ID和对应的连接
-  const clients = new Map();
+  const restaurantClients = new Map();
 
   // WebSocket 连接处理
   wss.on("connection", (ws, req) => {
@@ -20,7 +20,7 @@ const setupWebSocket = (server, app) => {
 
     if (restaurantId) {
       console.log(`餐厅 ${restaurantId} 的 WebSocket 连接已建立`);
-      clients.set(restaurantId, ws);
+      restaurantClients.set(restaurantId, ws);
 
       // 发送连接成功消息
       ws.send(
@@ -45,7 +45,7 @@ const setupWebSocket = (server, app) => {
 
       ws.on("close", () => {
         console.log(`餐厅 ${restaurantId} 的连接已断开`);
-        clients.delete(restaurantId);
+        restaurantClients.delete(restaurantId);
         clearInterval(pingInterval);
       });
 
@@ -58,48 +58,10 @@ const setupWebSocket = (server, app) => {
     }
   });
 
-  // 订单支付成功通知路由
-  app.post("/api/orders/payment-success", async (req, res) => {
-    try {
-      const { orderId, orderDetails, paymentStatus } = req.body;
-      console.log("收到支付成功通知:", req.body);
-
-      // 1. 更新订单状态
-      await Order.findByIdAndUpdate(orderId, {
-        paymentStatus: "Completed",
-      });
-
-      // 2. 获取订单对应的商家ID
-      const order = await Order.findById(orderId);
-      const restaurantId = order.restaurantId;
-
-      // 3. 获取对应商家的WebSocket连接
-      const restaurantWs = clients.get(restaurantId);
-
-      if (restaurantWs && restaurantWs.readyState === WebSocket.OPEN) {
-        // 4. 只向对应的商家发送通知
-        const wsMessage = {
-          type: "new_order",
-          orderId: orderId,
-          orderDetails: orderDetails,
-          timestamp: new Date().toISOString(),
-        };
-        restaurantWs.send(JSON.stringify(wsMessage));
-        console.log(`已发送订单支付通知到餐厅 ${restaurantId}`);
-      } else {
-        console.log(`餐厅 ${restaurantId} 不在线，无法发送通知`);
-      }
-
-      res.status(200).json({ message: "Order updated successfully" });
-    } catch (error) {
-      console.error("Error processing payment success:", error);
-      res.status(500).json({ error: "Failed to process payment success" });
-    }
-  });
+  // 导出 restaurantClients Map
+  wss.restaurantClients = restaurantClients;
 
   return wss;
 };
-
-// 提现通知
 
 module.exports = setupWebSocket;
