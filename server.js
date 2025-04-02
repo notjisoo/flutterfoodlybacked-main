@@ -133,7 +133,7 @@ app.post("/api/orders/payment-success", async (req, res) => {
     });
 
     // 2. 获取订单对应的商家ID
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(new ObjectId(orderId));
     if (!order) {
       console.error(`未找到订单: ${orderId}`);
       return res.status(404).json({ error: "Order not found" });
