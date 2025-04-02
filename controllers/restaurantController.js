@@ -1,6 +1,25 @@
 const Restaurant = require("../models/Restaurant");
 const User = require("../models/User");
 module.exports = {
+  // 获取所有餐厅
+  getAllRestaurants: async (req, res) => {
+    try {
+      const restaurants = await Restaurant.find({ isAvailable: true })
+        .select("-__v")
+        .sort({ createdAt: -1 });
+
+      res.status(200).json({
+        status: true,
+        data: restaurants,
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: false,
+        message: error.message,
+      });
+    }
+  },
+
   // 添加餐厅
   addRestaurant: async (req, res) => {
     const owner = req.user.id;

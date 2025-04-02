@@ -2,6 +2,9 @@ const router = require("express").Router();
 const restaurantController = require("../controllers/restaurantController");
 const { verifyTokenAndAuthorization } = require("../middleware/verifyToken");
 
+// 获取所有餐厅
+router.get("/", restaurantController.getAllRestaurants);
+
 router.post(
   "/",
   verifyTokenAndAuthorization,
