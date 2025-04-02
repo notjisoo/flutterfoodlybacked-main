@@ -38,37 +38,6 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 根路由
-app.get("/", (req, res) => {
-  res.status(200).json({
-    status: "success",
-    message: "欢迎访问 Foodly API",
-    version: "1.0.0",
-    endpoints: {
-      test: "/api/test",
-      health: "/health",
-      auth: "/api/auth",
-      users: "/api/users",
-      restaurants: "/api/restaurant",
-      foods: "/api/food",
-      categories: "/api/category",
-      ratings: "/api/rating",
-      addresses: "/api/address",
-      cart: "/api/cart",
-      orders: "/api/orders",
-    },
-  });
-});
-
-// 添加健康检查路由
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
-});
-
 // 设置 WebSocket
 setupWebSocket(server, app);
 
