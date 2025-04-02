@@ -1,8 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-const app = express();
-const dotenv = require("dotenv");
 const mongoose = require("mongoose");
+const dotenv = require("dotenv");
 const CategoryRoute = require("../routes/category");
 const RestaurantRoute = require("../routes/restaurant");
 const FoodsRoute = require("../routes/food");
@@ -14,106 +13,114 @@ const CartRoute = require("../routes/cart");
 const OrderRoute = require("../routes/order");
 const TestRoute = require("./test");
 
+// 初始化express应用
+const app = express();
 dotenv.config();
 
-// 请求日志中间件
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
-});
-
 // 中间件配置
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 根路由
-app.get("/", (req, res) => {
-  res.status(200).json({
-    status: "success",
-    message: "欢迎访问 Foodly API",
-    version: "1.0.0",
-    endpoints: {
-      test: "/api/test",
-      health: "/health",
-      auth: "/api/auth",
-      users: "/api/users",
-      restaurants: "/api/restaurant",
-      foods: "/api/food",
-      categories: "/api/category",
-      ratings: "/api/rating",
-      addresses: "/api/address",
-      cart: "/api/cart",
-      orders: "/api/orders",
-    },
-  });
-});
-
-// 添加健康检查路由
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
-});
-
 // 数据库连接
-mongoose
-  .connect(
-    process.env.MONGOURL ||
-      "mongodb+srv://foodly:mcQsSBqbnEi4qmwr@foodly.8brkl.mongodb.net/?retryWrites=true&w=majority&appName=foodly",
-    {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
+const connectDB = async () => {
+  try {
+    await mongoose.connect(
+      process.env.MONGOURL ||
+        "mongodb+srv://foodly:mcQsSBqbnEi4qmwr@foodly.8brkl.mongodb.net/?retryWrites=true&w=majority&appName=foodly",
+      {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      }
+    );
+    console.log("MongoDB Connected");
+  } catch (err) {
+    console.error("数据库连接错误:", err.message);
+    process.exit(1);
+  }
+};
+
+// 连接数据库
+connectDB();
+
+// API路由处理函数
+const handler = async (req, res) => {
+  try {
+    const path = req.url;
+
+    // 根路由
+    if (path === "/" || path === "") {
+      return res.status(200).json({
+        status: "success",
+        message: "欢迎访问 Foodly API",
+        version: "1.0.0",
+      });
     }
-  )
-  .then(() => {
-    console.log("Foodly Database Connected");
-  })
-  .catch((err) => {
-    console.error("数据库连接错误:", err);
-  });
 
-// 路由配置
-app.use("/api/test", TestRoute);
-app.use("/api/auth", AuthRoute);
-app.use("/api/users", UserRoute);
-app.use("/api/category", CategoryRoute);
-app.use("/api/restaurant", RestaurantRoute);
-app.use("/api/food", FoodsRoute);
-app.use("/api/rating", RatingsRoute);
-app.use("/api/address", AddressRoute);
-app.use("/api/cart", CartRoute);
-app.use("/api/orders", OrderRoute);
+    // 健康检查
+    if (path === "/health") {
+      return res.status(200).json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+      });
+    }
 
-// 404处理
-app.use((req, res) => {
-  console.log(`404 - 未找到路由: ${req.url}`);
-  res.status(404).json({
-    status: "error",
-    message: "未找到请求的资源",
-    path: req.url,
-  });
-});
+    // 测试路由
+    if (path === "/api/test") {
+      return res.status(200).json({
+        message: "Test API is working",
+        timestamp: new Date().toISOString(),
+      });
+    }
 
-// 错误处理中间件
-app.use((err, req, res, next) => {
-  console.error("服务器错误:", err);
-  res.status(500).json({
-    status: "error",
-    message: "服务器内部错误",
-    error: process.env.NODE_ENV === "development" ? err.message : undefined,
-  });
-});
+    // 路由配置
+    if (path === "/api/auth") {
+      return AuthRoute(req, res);
+    }
+    if (path === "/api/users") {
+      return UserRoute(req, res);
+    }
+    if (path === "/api/category") {
+      return CategoryRoute(req, res);
+    }
+    if (path === "/api/restaurant") {
+      return RestaurantRoute(req, res);
+    }
+    if (path === "/api/food") {
+      return FoodsRoute(req, res);
+    }
+    if (path === "/api/rating") {
+      return RatingsRoute(req, res);
+    }
+    if (path === "/api/address") {
+      return AddressRoute(req, res);
+    }
+    if (path === "/api/cart") {
+      return CartRoute(req, res);
+    }
+    if (path === "/api/orders") {
+      return OrderRoute(req, res);
+    }
 
-module.exports = app;
+    // 404处理
+    return res.status(404).json({
+      status: "error",
+      message: "未找到请求的资源",
+      path: path,
+    });
+  } catch (error) {
+    console.error("服务器错误:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "服务器内部错误",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// 导出处理函数
+module.exports = (req, res) => {
+  // 添加中间件
+  return app(req, res, () => handler(req, res));
+};
