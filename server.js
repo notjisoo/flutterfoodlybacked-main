@@ -87,15 +87,23 @@ mongoose
     {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
+      retryWrites: true,
+      retryReads: true,
+      maxPoolSize: 10,
+      minPoolSize: 5,
+      heartbeatFrequencyMS: 10000,
     }
   )
   .then(() => {
-    console.log("Foodly Database Connected");
+    console.log("Foodly Database Connected Successfully");
   })
   .catch((err) => {
-    console.error("数据库连接错误:", err);
+    console.error("MongoDB连接错误:", err);
+    if (process.env.NODE_ENV === "development") {
+      console.error("详细错误:", err.stack);
+    }
   });
 
 // 路由配置
