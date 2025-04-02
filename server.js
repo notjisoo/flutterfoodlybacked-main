@@ -19,20 +19,52 @@ dotenv.config();
 // 创建 HTTP 服务器
 const server = require("http").createServer(app);
 
+// 请求日志中间件
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // 中间件配置
 app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 根路由
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "欢迎访问 Foodly API",
+    version: "1.0.0",
+    endpoints: {
+      health: "/health",
+      auth: "/api/auth",
+      users: "/api/users",
+      restaurants: "/api/restaurant",
+      foods: "/api/food",
+      categories: "/api/category",
+      ratings: "/api/rating",
+      addresses: "/api/address",
+      cart: "/api/cart",
+      orders: "/api/orders",
+    },
+  });
+});
+
 // 添加健康检查路由
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
 });
 
 // 设置 WebSocket
@@ -41,17 +73,24 @@ setupWebSocket(server, app);
 // 数据库连接
 mongoose
   .connect(
-    "mongodb+srv://foodly:mcQsSBqbnEi4qmwr@foodly.8brkl.mongodb.net/?retryWrites=true&w=majority&appName=foodly"
+    process.env.MONGOURL ||
+      "mongodb+srv://foodly:mcQsSBqbnEi4qmwr@foodly.8brkl.mongodb.net/?retryWrites=true&w=majority&appName=foodly",
+    {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    }
   )
   .then(() => {
     console.log("Foodly Database Connected");
   })
   .catch((err) => {
-    console.log(err);
+    console.error("数据库连接错误:", err);
   });
 
 // 路由配置
-app.use("/", AuthRoute);
+app.use("/api/auth", AuthRoute);
 app.use("/api/users", UserRoute);
 app.use("/api/category", CategoryRoute);
 app.use("/api/restaurant", RestaurantRoute);
@@ -61,14 +100,30 @@ app.use("/api/address", AddressRoute);
 app.use("/api/cart", CartRoute);
 app.use("/api/orders", OrderRoute);
 
+// 404处理
+app.use((req, res) => {
+  console.log(`404 - 未找到路由: ${req.url}`);
+  res.status(404).json({
+    status: "error",
+    message: "未找到请求的资源",
+    path: req.url,
+  });
+});
+
 // 错误处理中间件
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: "Something went wrong!" });
+  console.error("服务器错误:", err);
+  res.status(500).json({
+    status: "error",
+    message: "服务器内部错误",
+    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+  });
 });
 
 // 使用 server.listen 而不是 app.listen
 const PORT = process.env.PORT || 6013;
 server.listen(PORT, () => {
   console.log(`Foodly Backend is running on port ${PORT}!`);
+  console.log(`API文档: http://localhost:${PORT}`);
+  console.log(`健康检查: http://localhost:${PORT}/health`);
 });

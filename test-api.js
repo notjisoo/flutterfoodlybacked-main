@@ -66,6 +66,6 @@ async function testAPI() {
 
 // 添加延迟后执行
 setTimeout(() => {
-  console.log("开始测试API...");
+  console.log("开始测试Vercel API...");
   testAPI();
 }, 1000);
