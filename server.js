@@ -121,6 +121,7 @@ app.post("/api/orders/payment-success", async (req, res) => {
     // 1. 更新订单状态
     await Order.findByIdAndUpdate(orderId, {
       paymentStatus: "Completed",
+      orderStatus: "Placed",
     });
 
     // 2. 获取订单对应的商家ID
